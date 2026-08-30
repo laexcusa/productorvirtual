@@ -1,0 +1,1848 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050807">
+  <meta name="description" content="Editor móvil del temario de La Excusa.">
+  <title>Anotador — La Excusa</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050807;
+      --shell: #0b0f0d;
+      --surface: rgba(255, 255, 255, .045);
+      --surface-strong: rgba(255, 255, 255, .075);
+      --surface-hover: rgba(92, 255, 150, .10);
+      --text: #f6faf7;
+      --muted: #8d9992;
+      --line: rgba(255, 255, 255, .13);
+      --purple: #5cff96;
+      --purple-strong: #3fe685;
+      --purple-soft: rgba(92, 255, 150, .10);
+      --orange: #ffd04f;
+      --green: #5cff96;
+      --red: #ff6578;
+      --yellow: #ffd04f;
+      --accent-rgb: 92, 255, 150;
+      --shadow: rgba(0, 0, 0, .4);
+      --radius-xl: 24px;
+      --radius-lg: 17px;
+      --radius-md: 12px;
+      --page-width: 760px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-height: 100%; background: var(--bg); }
+
+    body {
+      min-height: 100%;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% -12%, rgba(var(--accent-rgb), .16), transparent 34rem),
+        linear-gradient(135deg, rgba(255, 255, 255, .025), transparent 42%),
+        var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    body::after {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      content: "";
+      opacity: .2;
+      background-image: linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px);
+      background-size: 100% 4px;
+      pointer-events: none;
+    }
+
+    button,
+    input,
+    textarea,
+    select { font: inherit; }
+
+    button { -webkit-tap-highlight-color: transparent; }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--purple) 45%, transparent);
+      outline-offset: 2px;
+    }
+
+    .app-shell {
+      width: min(100%, var(--page-width));
+      min-height: 100vh;
+      margin: 0 auto;
+      border-inline: 1px solid rgba(255, 255, 255, .055);
+      background: rgba(5, 8, 7, .74);
+      box-shadow: 0 0 70px var(--shadow);
+    }
+
+    .app-chrome {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      padding-top: env(safe-area-inset-top);
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(var(--accent-rgb), .12), transparent 48%),
+        rgba(5, 8, 7, .93);
+      backdrop-filter: blur(18px);
+    }
+
+    .topbar { padding: 18px 18px 12px; }
+
+    .brand-row,
+    .title-row,
+    .section-head,
+    .card-row,
+    .button-row,
+    .save-row,
+    .question-actions,
+    .guest-row,
+    .history-row {
+      display: flex;
+      align-items: center;
+    }
+
+    .brand-row,
+    .title-row,
+    .section-head,
+    .save-row { justify-content: space-between; }
+
+    .brand-row,
+    .title-row,
+    .section-head,
+    .card-row,
+    .save-row,
+    .guest-row,
+    .history-row { gap: 12px; }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--text);
+      letter-spacing: .16em;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .brand-mark {
+      display: inline-grid;
+      width: 14px;
+      height: 14px;
+      place-items: center;
+      border: 1px solid rgba(var(--accent-rgb), .65);
+      border-radius: 50%;
+      background: transparent;
+      box-shadow: 0 0 22px rgba(var(--accent-rgb), .45);
+    }
+
+    .brand-mark::after {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--purple);
+      content: "";
+    }
+
+    .brand-sub {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .local-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 0;
+      border: 0;
+      color: var(--green);
+      background: transparent;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .local-status::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 0 0 12px color-mix(in srgb, currentColor 70%, transparent);
+    }
+
+    .title-row { margin-top: 18px; align-items: flex-end; }
+    .title-copy { min-width: 0; }
+
+    h1,
+    h2,
+    h3,
+    p { margin: 0; }
+
+    h1 { font-size: clamp(22px, 5.5vw, 28px); line-height: 1.08; letter-spacing: -.03em; }
+    h2 { font-size: 17px; line-height: 1.25; }
+    h3 { font-size: 16px; line-height: 1.35; }
+
+    .subtitle,
+    .meta,
+    .note,
+    .help-text {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .subtitle { margin-top: 5px; }
+
+    .main-nav {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 5px;
+      padding: 7px;
+      margin: 0 12px 10px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, .07);
+      background: rgba(255, 255, 255, .025);
+    }
+
+    .nav-button {
+      position: relative;
+      min-width: 0;
+      min-height: 56px;
+      padding: 6px 2px;
+      border: 0;
+      border-radius: 11px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      transition: background .18s ease, color .18s ease, transform .18s ease;
+    }
+
+    .nav-button[aria-selected="true"] {
+      color: var(--purple);
+      background: rgba(var(--accent-rgb), .10);
+      box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), .22), 0 5px 18px var(--shadow);
+    }
+
+    .nav-icon {
+      display: block;
+      width: 19px;
+      height: 19px;
+      margin: 0 auto 4px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .nav-label { display: block; overflow: hidden; text-overflow: ellipsis; font-size: 11px; font-weight: 700; }
+
+    .nav-count {
+      position: absolute;
+      top: 4px;
+      left: calc(50% + 7px);
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 999px;
+      color: #041008;
+      background: var(--purple);
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 16px;
+      text-align: center;
+    }
+
+    .page-content {
+      min-height: 55vh;
+      padding: 20px 18px calc(36px + env(safe-area-inset-bottom));
+    }
+
+    .view { animation: view-in .2s ease both; }
+    .view[hidden] { display: none; }
+
+    @keyframes view-in {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .section-head { margin-bottom: 12px; align-items: flex-start; }
+    .section-head > div { min-width: 0; }
+    .section-head .meta { margin-top: 3px; }
+    .section-head h2 {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    .stack { display: grid; gap: 10px; }
+
+    .surface,
+    .program-card,
+    .idea-card,
+    .question-card,
+    .history-card,
+    .guest-card,
+    .empty-state {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+    }
+
+    .program-card,
+    .idea-card,
+    .question-card,
+    .history-card,
+    .guest-card { padding: 14px; }
+
+    .program-card.featured {
+      border-color: color-mix(in srgb, var(--purple) 50%, var(--line));
+      background: linear-gradient(145deg, var(--purple-soft), var(--surface));
+      box-shadow: inset 3px 0 0 var(--purple);
+    }
+
+    .duration {
+      flex: 0 0 52px;
+      padding: 7px 5px;
+      border-radius: 10px;
+      color: var(--muted);
+      border: 1px solid rgba(255, 255, 255, .08);
+      background: rgba(255, 255, 255, .035);
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .grow { flex: 1; min-width: 0; }
+    .grow .meta,
+    .note { margin-top: 5px; }
+
+    .prompt-preview {
+      display: -webkit-box;
+      overflow: hidden;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      font-size: 14px;
+      line-height: 1.48;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    .chip,
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .chip { color: var(--purple); background: var(--purple-soft); }
+    .status-chip.pending { color: var(--orange); background: color-mix(in srgb, var(--orange) 13%, transparent); }
+    .status-chip.programmed { color: var(--purple); background: var(--purple-soft); }
+    .status-chip.used { color: var(--green); background: color-mix(in srgb, var(--green) 13%, transparent); }
+
+    .button,
+    .icon-button,
+    .header-action,
+    .segmented-button {
+      border: 0;
+      color: var(--text);
+      cursor: pointer;
+      transition: background .16s ease, border-color .16s ease, transform .16s ease, opacity .16s ease;
+    }
+
+    .button:active,
+    .icon-button:active,
+    .header-action:active,
+    .segmented-button:active { transform: translateY(1px); }
+
+    .button {
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, .035);
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .button:hover,
+    .icon-button:hover,
+    .header-action:hover { background: var(--surface-hover); }
+
+    .button.primary {
+      border-color: var(--purple);
+      color: #041008;
+      background: var(--purple);
+      box-shadow: 0 0 24px rgba(var(--accent-rgb), .18);
+    }
+
+    .button.primary:hover { filter: brightness(1.06); }
+    .button.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+    .button.danger { color: var(--red); }
+    .button.full { width: 100%; }
+    .button .icon { margin-right: 5px; vertical-align: -5px; }
+
+    .header-action {
+      min-height: 44px;
+      padding: 0 13px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, .035);
+      font-size: 13px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .icon-button {
+      display: inline-grid;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, .035);
+    }
+
+    .icon-button.danger { color: var(--red); }
+
+    .icon {
+      width: 19px;
+      height: 19px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .button-row { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .save-row { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+
+    .composer {
+      padding: 14px;
+      margin-bottom: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+    }
+
+    .field { display: grid; gap: 7px; }
+    .field + .field { margin-top: 12px; }
+
+    .field-label {
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .input,
+    .textarea,
+    .select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      color: var(--text);
+      background: rgba(255, 255, 255, .04);
+      font-size: 16px;
+    }
+
+    .input,
+    .select { min-height: 48px; padding: 0 12px; }
+    .textarea { min-height: 100px; padding: 11px 12px; resize: vertical; line-height: 1.45; }
+    .input::placeholder,
+    .textarea::placeholder { color: color-mix(in srgb, var(--muted) 78%, transparent); }
+
+    .input:focus,
+    .textarea:focus,
+    .select:focus {
+      border-color: rgba(var(--accent-rgb), .58);
+      background: rgba(255, 255, 255, .065);
+    }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 5px;
+      padding: 5px;
+      margin-bottom: 14px;
+      border-radius: 14px;
+      background: var(--surface);
+    }
+
+    .segmented-button {
+      min-height: 44px;
+      padding: 0 8px;
+      border-radius: 10px;
+      color: var(--muted);
+      background: transparent;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .segmented-button[aria-selected="true"] {
+      color: var(--purple);
+      background: rgba(var(--accent-rgb), .10);
+      box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), .20), 0 4px 14px var(--shadow);
+    }
+
+    .idea-actions,
+    .question-actions { justify-content: space-between; gap: 8px; margin-top: 12px; }
+    .question-actions { justify-content: flex-end; }
+
+    .guest-card {
+      margin-bottom: 12px;
+      background: linear-gradient(145deg, var(--purple-soft), var(--surface));
+    }
+
+    .avatar {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      flex: 0 0 44px;
+      place-items: center;
+      border-radius: 14px;
+      border: 1px solid rgba(var(--accent-rgb), .45);
+      color: var(--purple);
+      background: rgba(var(--accent-rgb), .10);
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+
+    .history-date {
+      flex: 0 0 58px;
+      color: var(--purple);
+      text-align: center;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+
+    .history-date strong { display: block; font-size: 21px; }
+
+    .info-strip {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      color: var(--muted);
+      background: var(--purple-soft);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .empty-state { padding: 28px 20px; text-align: center; }
+    .empty-state h3 { margin-bottom: 6px; }
+    .empty-state .button { margin-top: 16px; }
+
+    dialog {
+      width: min(calc(100% - 24px), 580px);
+      max-height: min(88vh, 760px);
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      color: var(--text);
+      background: #0b0f0d;
+      box-shadow: 0 30px 90px rgba(0, 0, 0, .55);
+    }
+
+    dialog::backdrop {
+      background: rgba(0, 0, 0, .72);
+      backdrop-filter: blur(7px);
+    }
+
+    .dialog-form { display: flex; max-height: inherit; flex-direction: column; }
+
+    .dialog-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .dialog-body { overflow-y: auto; padding: 18px; }
+
+    .dialog-foot {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--line);
+      background: #0b0f0d;
+    }
+
+    .dialog-close { margin-left: auto; }
+
+    .check-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .check-row input { width: 20px; height: 20px; flex: 0 0 20px; accent-color: var(--purple); }
+
+    .history-detail-block + .history-detail-block { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .history-detail-block .prompt-list { margin: 9px 0 0; padding-left: 20px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+    .backup-actions { display: grid; gap: 10px; }
+
+    .backup-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 62px;
+      padding: 11px 13px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: var(--text);
+      background: var(--surface);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .backup-option:hover { background: var(--surface-hover); }
+    .backup-option strong,
+    .backup-option .meta { display: block; }
+    .backup-option .grow .meta { margin-top: 2px; }
+
+    .toast-region {
+      position: fixed;
+      right: 14px;
+      bottom: calc(14px + env(safe-area-inset-bottom));
+      z-index: 100;
+      display: grid;
+      width: min(calc(100% - 28px), 360px);
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      color: var(--text);
+      background: rgba(10, 14, 12, .96);
+      box-shadow: 0 14px 38px var(--shadow);
+      font-size: 13px;
+      animation: toast-in .2s ease both;
+    }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 520px) {
+      .app-shell { box-shadow: none; }
+      .topbar { padding-left: 16px; padding-right: 16px; }
+      .page-content { padding-left: 16px; padding-right: 16px; }
+      .title-row { align-items: flex-end; }
+      .header-action { max-width: 105px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .save-row { align-items: stretch; flex-direction: column; }
+      .save-row .button { width: 100%; }
+      .history-row { align-items: flex-start; }
+    }
+
+    @media (max-width: 350px) {
+      .nav-label { font-size: 10px; }
+      .main-nav { margin-left: 8px; margin-right: 8px; }
+      .page-content { padding-left: 12px; padding-right: 12px; }
+      .topbar { padding-left: 12px; padding-right: 12px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell" id="app">
+    <div class="app-chrome">
+      <header class="topbar">
+        <div class="brand-row">
+          <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>LA EXCUSA</span><span class="brand-sub">Anotador</span></div>
+          <button class="local-status" id="backupButton" type="button" data-action="open-backup">Guardado local</button>
+        </div>
+        <div class="title-row">
+          <div class="title-copy">
+            <h1 id="pageTitle">Programa del viernes</h1>
+            <p class="subtitle" id="pageSubtitle">En preparación</p>
+          </div>
+          <button class="header-action" id="headerAction" type="button">Nuevo</button>
+        </div>
+      </header>
+
+      <nav class="main-nav" aria-label="Secciones">
+        <button class="nav-button" type="button" data-view="program" aria-selected="true">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          <span class="nav-label">Programa</span>
+        </button>
+        <button class="nav-button" type="button" data-view="ideas" aria-selected="false">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 22h4M8.5 14.5A7 7 0 1 1 15.5 14.5c-.8.6-1.3 1.4-1.5 2.5h-4c-.2-1.1-.7-1.9-1.5-2.5Z"/></svg>
+          <span class="nav-label">Tintero</span><span class="nav-count" id="ideasCount" hidden>0</span>
+        </button>
+        <button class="nav-button" type="button" data-view="questions" aria-selected="false">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/><path d="M8 9h8M8 13h5"/></svg>
+          <span class="nav-label">Preguntas</span><span class="nav-count" id="questionsCount" hidden>0</span>
+        </button>
+        <button class="nav-button" type="button" data-view="history" aria-selected="false">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>
+          <span class="nav-label">Historial</span><span class="nav-count" id="historyCount" hidden>0</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="page-content">
+      <section class="view" id="programView" aria-labelledby="pageTitle"></section>
+      <section class="view" id="ideasView" aria-labelledby="pageTitle" hidden></section>
+      <section class="view" id="questionsView" aria-labelledby="pageTitle" hidden></section>
+      <section class="view" id="historyView" aria-labelledby="pageTitle" hidden></section>
+    </div>
+  </main>
+
+  <dialog id="editorDialog" aria-labelledby="editorDialogTitle">
+    <form class="dialog-form" id="editorForm" method="dialog">
+      <header class="dialog-head">
+        <h2 id="editorDialogTitle">Editar</h2>
+        <button class="icon-button dialog-close" type="button" data-action="close-editor" aria-label="Cerrar">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>
+        </button>
+      </header>
+      <div class="dialog-body" id="editorDialogBody"></div>
+      <footer class="dialog-foot">
+        <button class="button ghost" type="button" data-action="close-editor">Cancelar</button>
+        <button class="button primary" id="editorSaveButton" type="submit">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog" aria-labelledby="confirmDialogTitle">
+    <form class="dialog-form" method="dialog">
+      <header class="dialog-head"><h2 id="confirmDialogTitle">Confirmar</h2></header>
+      <div class="dialog-body"><p class="help-text" id="confirmDialogMessage"></p></div>
+      <footer class="dialog-foot">
+        <button class="button ghost" id="confirmCancel" type="button">Cancelar</button>
+        <button class="button danger" id="confirmAccept" type="button">Confirmar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="backupDialog" aria-labelledby="backupDialogTitle">
+    <form class="dialog-form" method="dialog">
+      <header class="dialog-head">
+        <div><h2 id="backupDialogTitle">Datos locales</h2><p class="meta">Hasta conectar Google Sheets</p></div>
+        <button class="icon-button dialog-close" type="button" data-action="close-backup" aria-label="Cerrar">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>
+        </button>
+      </header>
+      <div class="dialog-body">
+        <div class="backup-actions">
+          <button class="backup-option" type="button" data-action="export-data">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+            <span class="grow"><strong>Exportar respaldo</strong><span class="meta">Descarga todo en un archivo JSON.</span></span>
+          </button>
+          <button class="backup-option" type="button" data-action="import-data">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></svg>
+            <span class="grow"><strong>Importar respaldo</strong><span class="meta">Restaura un archivo exportado anteriormente.</span></span>
+          </button>
+        </div>
+        <p class="info-strip">Por ahora la información queda solamente en este navegador y este dispositivo. Cuando conectemos Google Sheets, esta pantalla pasará a sincronizarse.</p>
+      </div>
+    </form>
+  </dialog>
+
+  <input class="sr-only" id="importInput" type="file" accept="application/json,.json">
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
+  <noscript><p>Esta aplicación necesita JavaScript para funcionar.</p></noscript>
+
+  <!-- La capa DataAdapter se reemplazará por Google Apps Script en la próxima etapa. -->
+  <script>
+    (() => {
+      'use strict';
+
+      const STORAGE_KEY = 'la-excusa-editor-v1';
+      const MAX_HISTORY = 5;
+
+      const ICONS = {
+        edit: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>',
+        trash: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v5M14 11v5"/></svg>',
+        chevron: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
+        undo: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v1"/></svg>',
+        plus: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'
+      };
+
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+      const elements = {
+        app: $('#app'),
+        pageTitle: $('#pageTitle'),
+        pageSubtitle: $('#pageSubtitle'),
+        headerAction: $('#headerAction'),
+        views: {
+          program: $('#programView'),
+          ideas: $('#ideasView'),
+          questions: $('#questionsView'),
+          history: $('#historyView')
+        },
+        navButtons: $$('.nav-button'),
+        ideasCount: $('#ideasCount'),
+        questionsCount: $('#questionsCount'),
+        historyCount: $('#historyCount'),
+        editorDialog: $('#editorDialog'),
+        editorForm: $('#editorForm'),
+        editorTitle: $('#editorDialogTitle'),
+        editorBody: $('#editorDialogBody'),
+        editorSave: $('#editorSaveButton'),
+        confirmDialog: $('#confirmDialog'),
+        confirmTitle: $('#confirmDialogTitle'),
+        confirmMessage: $('#confirmDialogMessage'),
+        confirmCancel: $('#confirmCancel'),
+        confirmAccept: $('#confirmAccept'),
+        backupDialog: $('#backupDialog'),
+        importInput: $('#importInput'),
+        toastRegion: $('#toastRegion')
+      };
+
+      let state;
+      let activeView = 'program';
+      let ideaFilter = 'active';
+      let questionMode = 'general';
+      let selectedGuestId = null;
+      let editorSubmitHandler = null;
+      let confirmResolver = null;
+
+      /*
+       * Punto de integración futuro.
+       * En la próxima etapa load/save se conectarán al Web App de Google Apps Script.
+       */
+      const DataAdapter = {
+        mode: 'local',
+        async load() {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return null;
+          try {
+            return JSON.parse(raw);
+          } catch (error) {
+            console.warn('No se pudo leer el estado guardado.', error);
+            return null;
+          }
+        },
+        async save(nextState) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+        }
+      };
+
+      function uid(prefix = 'id') {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+          return `${prefix}-${window.crypto.randomUUID()}`;
+        }
+        return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+      }
+
+      function clone(value) {
+        return typeof structuredClone === 'function'
+          ? structuredClone(value)
+          : JSON.parse(JSON.stringify(value));
+      }
+
+      function isoDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+
+      function nextFridayIso() {
+        const date = new Date();
+        date.setHours(12, 0, 0, 0);
+        const delta = (5 - date.getDay() + 7) % 7;
+        date.setDate(date.getDate() + delta);
+        return isoDate(date);
+      }
+
+      function dateFromIso(value) {
+        const safeValue = /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value : nextFridayIso();
+        return new Date(`${safeValue}T12:00:00`);
+      }
+
+      function formatLongDate(value) {
+        return new Intl.DateTimeFormat('es-AR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long'
+        }).format(dateFromIso(value));
+      }
+
+      function shortDateParts(value) {
+        const date = dateFromIso(value);
+        return {
+          day: String(date.getDate()).padStart(2, '0'),
+          month: new Intl.DateTimeFormat('es-AR', { month: 'short' }).format(date).replace('.', '').toUpperCase()
+        };
+      }
+
+      function escapeHtml(value = '') {
+        return String(value).replace(/[&<>'"]/g, character => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          "'": '&#39;',
+          '"': '&quot;'
+        })[character]);
+      }
+
+      function promptLines(value = '') {
+        return String(value).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      }
+
+      function plural(count, singular, pluralWord) {
+        return `${count} ${count === 1 ? singular : pluralWord}`;
+      }
+
+      function defaultBlocks() {
+        return [
+          { id: uid('block'), duration: 10, title: 'Apertura + Pregunta del día + ¿Qué tal tu semana?', prompts: '' },
+          { id: uid('block'), duration: 10, title: '¿Qué pasó en el mundo esta semana?', prompts: '' },
+          { id: uid('block'), duration: 60, title: 'TEMA PRINCIPAL', prompts: '' },
+          { id: uid('block'), duration: 20, title: 'Temas secundarios', prompts: '' },
+          { id: uid('block'), duration: 10, title: 'ACTIVIDAD EXTRA', prompts: '' },
+          { id: uid('block'), duration: 10, title: 'Cierre', prompts: '' }
+        ];
+      }
+
+      function createProgram(date = nextFridayIso()) {
+        return {
+          id: uid('program'),
+          date,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          blocks: defaultBlocks()
+        };
+      }
+
+      function seedQuestions() {
+        const generalTexts = [
+          '¿Qué te llevó a decidir que esto fuera tu oficio?',
+          '¿Qué tan lejos estás de lo que querías o creías que ibas a ser cuando eras chico?',
+          '¿Cómo fue tu formación y especialización?',
+          '¿Qué cambió en tu vida una vez que empezaste a ejercer?',
+          '¿Quién eras antes de convertirte en la persona que sos hoy?',
+          '¿Qué cosas de tu vida sentís que más te fueron moldeando?',
+          '¿Qué imaginabas que iba a significar para vos dedicarte a esto y qué terminó significando realmente?',
+          '¿Qué parte de vos creés que fue necesaria para llegar hasta donde estás?',
+          '¿Qué parte de vos tuvo que cambiar para poder hacer lo que hacés hoy?',
+          '¿Qué aprendiste ejerciendo que ninguna formación te podría haber enseñado?',
+          '¿Qué idea que tenías sobre tu profesión terminó chocando con la realidad?',
+          '¿Qué creés que habrías hecho si nunca hubieras seguido este camino?',
+          '¿Qué parte de tu trabajo sentís que la gente de afuera entiende menos?'
+        ];
+
+        const bacoTexts = [
+          '¿Qué te llevó a estudiar Derecho y, específicamente, a elegir el derecho penal?',
+          '¿Cómo fue tu formación y el camino hasta especializarte?',
+          '¿Cómo es realmente el trabajo de un abogado penalista en el día a día?',
+          '¿Qué es lo que más te sorprendió de la profesión cuando empezaste a ejercer?',
+          '¿Qué idea equivocada creés que tiene la mayoría de la gente sobre los abogados penalistas o sobre la justicia penal?',
+          '¿Qué da por hecho la gente de vos cuando sabe que sos abogado?',
+          '¿Cuáles son los casos más difíciles de defender?',
+          '¿En qué tipo de casos sentís que una buena defensa puede cambiar más el resultado?'
+        ];
+
+        return {
+          general: generalTexts.map(text => ({ id: uid('question'), text, createdAt: new Date().toISOString() })),
+          guests: [{
+            id: uid('guest'),
+            name: 'Baco',
+            description: 'Abogado penalista y rapero',
+            createdAt: new Date().toISOString(),
+            questions: bacoTexts.map(text => ({ id: uid('question'), text, createdAt: new Date().toISOString() }))
+          }]
+        };
+      }
+
+      function seedState() {
+        return {
+          version: 1,
+          currentProgram: createProgram(),
+          ideas: [],
+          questions: seedQuestions(),
+          history: [],
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      function normalizeBlock(block) {
+        return {
+          id: block?.id || uid('block'),
+          duration: Number.isFinite(Number(block?.duration)) ? Math.max(0, Number(block.duration)) : 10,
+          title: String(block?.title || 'Bloque sin título'),
+          prompts: Array.isArray(block?.prompts) ? block.prompts.join('\n') : String(block?.prompts || '')
+        };
+      }
+
+      function normalizeState(raw) {
+        const fallback = seedState();
+        if (!raw || typeof raw !== 'object') return fallback;
+
+        const program = raw.currentProgram && Array.isArray(raw.currentProgram.blocks)
+          ? {
+              ...raw.currentProgram,
+              id: raw.currentProgram.id || uid('program'),
+              date: raw.currentProgram.date || nextFridayIso(),
+              blocks: raw.currentProgram.blocks.map(normalizeBlock)
+            }
+          : fallback.currentProgram;
+
+        const hasQuestions = raw.questions
+          && Array.isArray(raw.questions.general)
+          && Array.isArray(raw.questions.guests);
+
+        return {
+          version: 1,
+          currentProgram: program,
+          ideas: Array.isArray(raw.ideas) ? raw.ideas : fallback.ideas,
+          questions: hasQuestions ? raw.questions : fallback.questions,
+          history: Array.isArray(raw.history)
+            ? raw.history.slice(0, MAX_HISTORY).map(item => ({ ...item, blocks: (item.blocks || []).map(normalizeBlock) }))
+            : [],
+          updatedAt: raw.updatedAt || new Date().toISOString()
+        };
+      }
+
+      function totalQuestions() {
+        return state.questions.general.length
+          + state.questions.guests.reduce((sum, guest) => sum + guest.questions.length, 0);
+      }
+
+      function activeIdeas() {
+        return state.ideas.filter(idea => idea.status !== 'used');
+      }
+
+      function programTitle(program) {
+        const main = program.blocks.find(block => /tema principal/i.test(block.title));
+        if (main) {
+          const titleAfterColon = main.title.split(':').slice(1).join(':').trim();
+          if (titleAfterColon) return titleAfterColon;
+          const firstPrompt = promptLines(main.prompts)[0];
+          if (firstPrompt) return firstPrompt.length > 58 ? `${firstPrompt.slice(0, 55)}…` : firstPrompt;
+        }
+        const meaningful = program.blocks.find(block => promptLines(block.prompts).length > 0);
+        return meaningful ? meaningful.title : 'Programa sin título';
+      }
+
+      async function persist(message, options = {}) {
+        state.updatedAt = new Date().toISOString();
+        state.currentProgram.updatedAt = state.updatedAt;
+        try {
+          await DataAdapter.save(state);
+          render();
+          if (message && !options.silent) toast(message);
+          return true;
+        } catch (error) {
+          console.error(error);
+          toast('No se pudieron guardar los cambios.', 'error');
+          return false;
+        }
+      }
+
+      function toast(message, type = 'success') {
+        const item = document.createElement('div');
+        item.className = 'toast';
+        item.textContent = message;
+        if (type === 'error') item.style.borderColor = 'var(--red)';
+        elements.toastRegion.appendChild(item);
+        window.setTimeout(() => item.remove(), 2600);
+      }
+
+      function showModal(dialog) {
+        if (typeof dialog.showModal === 'function') dialog.showModal();
+        else dialog.setAttribute('open', '');
+      }
+
+      function closeModal(dialog) {
+        if (typeof dialog.close === 'function') dialog.close();
+        else dialog.removeAttribute('open');
+      }
+
+      function updateBadge(element, count) {
+        element.textContent = String(count);
+        element.hidden = count === 0;
+      }
+
+      function setView(view) {
+        if (!elements.views[view]) return;
+        activeView = view;
+        Object.entries(elements.views).forEach(([name, element]) => { element.hidden = name !== view; });
+        elements.navButtons.forEach(button => button.setAttribute('aria-selected', String(button.dataset.view === view)));
+        renderHeader();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function renderHeader() {
+        const pending = activeIdeas().length;
+        const config = {
+          program: {
+            title: 'Programa del viernes',
+            subtitle: `${formatLongDate(state.currentProgram.date)} · En preparación`,
+            action: 'Nuevo'
+          },
+          ideas: {
+            title: 'Temas en el tintero',
+            subtitle: plural(pending, 'idea pendiente', 'ideas pendientes'),
+            action: 'Nueva idea'
+          },
+          questions: {
+            title: 'Preguntas',
+            subtitle: 'Generales y específicas por invitado',
+            action: 'Agregar'
+          },
+          history: {
+            title: 'Historial',
+            subtitle: 'Los últimos cinco programas',
+            action: ''
+          }
+        }[activeView];
+
+        elements.pageTitle.textContent = config.title;
+        elements.pageSubtitle.textContent = config.subtitle;
+        elements.headerAction.textContent = config.action;
+        elements.headerAction.hidden = !config.action;
+      }
+
+      function renderProgram() {
+        const program = state.currentProgram;
+        const totalMinutes = program.blocks.reduce((sum, block) => sum + Number(block.duration || 0), 0);
+        const cards = program.blocks.map(block => {
+          const prompts = promptLines(block.prompts);
+          const featured = /tema principal/i.test(block.title);
+          const meta = prompts.length ? plural(prompts.length, 'disparador', 'disparadores') : 'Sin disparadores';
+          return `
+            <article class="program-card${featured ? ' featured' : ''}">
+              <div class="card-row">
+                <span class="duration">${escapeHtml(block.duration)} min</span>
+                <div class="grow">
+                  <h3>${escapeHtml(block.title)}</h3>
+                  <p class="meta">${meta}</p>
+                </div>
+                <button class="icon-button" type="button" data-action="edit-block" data-id="${escapeHtml(block.id)}" aria-label="Editar ${escapeHtml(block.title)}">${ICONS.edit}</button>
+              </div>
+              ${prompts.length ? `<p class="prompt-preview">${escapeHtml(prompts[0])}</p>` : ''}
+            </article>`;
+        }).join('');
+
+        elements.views.program.innerHTML = `
+          <div class="section-head">
+            <div><h2>Orden del programa</h2><p class="meta">${totalMinutes} minutos en ${program.blocks.length} bloques</p></div>
+            <button class="button" type="button" data-action="edit-date">Cambiar fecha</button>
+          </div>
+          <div class="stack">${cards}</div>
+          <div class="button-row" style="margin-top:12px">
+            <button class="button" type="button" data-action="add-block">${ICONS.plus} Agregar bloque</button>
+          </div>
+          <div class="save-row">
+            <span class="meta">Al crear uno nuevo, este pasa al historial.</span>
+            <button class="button primary" type="button" data-action="save-program">Guardar programa</button>
+          </div>`;
+      }
+
+      function renderIdeas() {
+        const active = state.ideas.filter(idea => idea.status !== 'used');
+        const used = state.ideas.filter(idea => idea.status === 'used');
+        const list = ideaFilter === 'used' ? used : active;
+
+        const cards = list.map(idea => {
+          const status = idea.status || 'pending';
+          const statusText = status === 'programmed' ? 'En el programa' : status === 'used' ? 'Usado' : 'Pendiente';
+          let mainAction = `<button class="button" type="button" data-action="add-idea-to-program" data-id="${escapeHtml(idea.id)}">Sumar al viernes</button>`;
+          if (status === 'programmed') {
+            mainAction = `<button class="button" type="button" data-action="return-idea" data-id="${escapeHtml(idea.id)}">Devolver al tintero</button>`;
+          } else if (status === 'used') {
+            mainAction = `<button class="button" type="button" data-action="recover-idea" data-id="${escapeHtml(idea.id)}">Recuperar</button>`;
+          }
+
+          return `
+            <article class="idea-card">
+              <h3>${escapeHtml(idea.title)}</h3>
+              ${idea.note ? `<p class="note">${escapeHtml(idea.note)}</p>` : ''}
+              <div class="idea-actions">
+                <span class="status-chip ${status}">${statusText}</span>
+                <div class="button-row">
+                  <button class="icon-button" type="button" data-action="edit-idea" data-id="${escapeHtml(idea.id)}" aria-label="Editar tema">${ICONS.edit}</button>
+                  <button class="icon-button danger" type="button" data-action="delete-idea" data-id="${escapeHtml(idea.id)}" aria-label="Eliminar tema">${ICONS.trash}</button>
+                  ${mainAction}
+                </div>
+              </div>
+            </article>`;
+        }).join('');
+
+        elements.views.ideas.innerHTML = `
+          <form class="composer" id="ideaComposer">
+            <div class="field">
+              <label class="field-label" for="newIdeaTitle">Anotar una idea</label>
+              <input class="input" id="newIdeaTitle" name="title" type="text" maxlength="180" placeholder="Ej.: ¿Por qué nos cuesta estar solos?" required>
+            </div>
+            <div class="field">
+              <label class="field-label" for="newIdeaNote">Nota o pregunta disparadora <span class="meta">(opcional)</span></label>
+              <textarea class="textarea" id="newIdeaNote" name="note" maxlength="800" placeholder="Un poco de contexto para no olvidar por dónde encarar el tema."></textarea>
+            </div>
+            <div class="button-row" style="margin-top:12px"><button class="button primary" type="submit">Guardar idea</button></div>
+          </form>
+          <div class="segmented" role="tablist" aria-label="Estado de los temas">
+            <button class="segmented-button" type="button" data-action="filter-ideas" data-filter="active" aria-selected="${ideaFilter === 'active'}">Pendientes · ${active.length}</button>
+            <button class="segmented-button" type="button" data-action="filter-ideas" data-filter="used" aria-selected="${ideaFilter === 'used'}">Usados · ${used.length}</button>
+          </div>
+          ${cards ? `<div class="stack">${cards}</div>` : `
+            <div class="empty-state">
+              <h3>${ideaFilter === 'used' ? 'Todavía no hay temas usados' : 'El tintero está vacío'}</h3>
+              <p class="meta">${ideaFilter === 'used' ? 'Cuando cierres un programa, sus temas secundarios aparecerán acá.' : 'Anotá arriba cualquier idea antes de que vuelva a perderse.'}</p>
+            </div>`}`;
+      }
+
+      function questionCard(question, scope, guestId = '') {
+        return `
+          <article class="question-card">
+            <h3>${escapeHtml(question.text)}</h3>
+            <div class="question-actions">
+              <button class="icon-button" type="button" data-action="edit-question" data-id="${escapeHtml(question.id)}" data-scope="${scope}" data-guest-id="${escapeHtml(guestId)}" aria-label="Editar pregunta">${ICONS.edit}</button>
+              <button class="icon-button danger" type="button" data-action="delete-question" data-id="${escapeHtml(question.id)}" data-scope="${scope}" data-guest-id="${escapeHtml(guestId)}" aria-label="Eliminar pregunta">${ICONS.trash}</button>
+            </div>
+          </article>`;
+      }
+
+      function renderQuestions() {
+        if (!selectedGuestId || !state.questions.guests.some(guest => guest.id === selectedGuestId)) {
+          selectedGuestId = state.questions.guests[0]?.id || null;
+        }
+
+        const generalPanel = `
+          <div class="section-head">
+            <div><h2>Preguntas generales</h2><p class="meta">Sirven para cualquier entrevistado</p></div>
+            <button class="button primary" type="button" data-action="add-question" data-scope="general">+ Pregunta</button>
+          </div>
+          ${state.questions.general.length
+            ? `<div class="stack">${state.questions.general.map(question => questionCard(question, 'general')).join('')}</div>`
+            : `<div class="empty-state"><h3>No hay preguntas generales</h3><p class="meta">Agregá las que quieras conservar para futuras entrevistas.</p><button class="button primary" type="button" data-action="add-question" data-scope="general">Agregar pregunta</button></div>`}`;
+
+        let specificPanel;
+        if (!state.questions.guests.length) {
+          specificPanel = `
+            <div class="empty-state">
+              <h3>Todavía no hay invitados</h3>
+              <p class="meta">Creá uno para empezar a guardar preguntas específicas.</p>
+              <button class="button primary" type="button" data-action="add-guest">Crear invitado</button>
+            </div>`;
+        } else {
+          const guest = state.questions.guests.find(item => item.id === selectedGuestId) || state.questions.guests[0];
+          specificPanel = `
+            <div class="field" style="margin-bottom:12px">
+              <label class="field-label" for="guestSelect">Invitado</label>
+              <select class="select" id="guestSelect">
+                ${state.questions.guests.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === guest.id ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}
+              </select>
+            </div>
+            <article class="guest-card">
+              <div class="guest-row">
+                <span class="avatar">${escapeHtml(guest.name.slice(0, 1))}</span>
+                <div class="grow"><h3>${escapeHtml(guest.name)}</h3><p class="meta">${escapeHtml(guest.description || 'Sin descripción')}</p></div>
+                <button class="icon-button" type="button" data-action="edit-guest" data-id="${escapeHtml(guest.id)}" aria-label="Editar invitado">${ICONS.edit}</button>
+                <button class="icon-button danger" type="button" data-action="delete-guest" data-id="${escapeHtml(guest.id)}" aria-label="Eliminar invitado">${ICONS.trash}</button>
+              </div>
+            </article>
+            <div class="section-head">
+              <div><h2>Preguntas específicas</h2><p class="meta">Solamente para ${escapeHtml(guest.name)}</p></div>
+              <button class="button primary" type="button" data-action="add-question" data-scope="guest" data-guest-id="${escapeHtml(guest.id)}">+ Pregunta</button>
+            </div>
+            ${guest.questions.length
+              ? `<div class="stack">${guest.questions.map(question => questionCard(question, 'guest', guest.id)).join('')}</div>`
+              : `<div class="empty-state"><h3>No hay preguntas para ${escapeHtml(guest.name)}</h3><p class="meta">Este banco queda separado de las preguntas generales.</p><button class="button primary" type="button" data-action="add-question" data-scope="guest" data-guest-id="${escapeHtml(guest.id)}">Agregar pregunta</button></div>`}
+            <div class="button-row" style="margin-top:12px"><button class="button" type="button" data-action="add-guest">+ Nuevo invitado</button></div>`;
+        }
+
+        elements.views.questions.innerHTML = `
+          <div class="segmented" role="tablist" aria-label="Tipos de preguntas">
+            <button class="segmented-button" type="button" data-action="question-mode" data-mode="general" aria-selected="${questionMode === 'general'}">Generales · ${state.questions.general.length}</button>
+            <button class="segmented-button" type="button" data-action="question-mode" data-mode="guest" aria-selected="${questionMode === 'guest'}">Por invitado · ${state.questions.guests.length}</button>
+          </div>
+          ${questionMode === 'general' ? generalPanel : specificPanel}`;
+      }
+
+      function renderHistory() {
+        const cards = state.history.map(program => {
+          const date = shortDateParts(program.date);
+          const prompts = program.blocks.reduce((sum, block) => sum + promptLines(block.prompts).length, 0);
+          return `
+            <article class="history-card">
+              <div class="history-row">
+                <div class="history-date"><strong>${date.day}</strong>${escapeHtml(date.month)}</div>
+                <div class="grow"><h3>${escapeHtml(programTitle(program))}</h3><p class="note">${program.blocks.length} bloques · ${plural(prompts, 'disparador', 'disparadores')}</p></div>
+                <button class="button" type="button" data-action="view-history" data-id="${escapeHtml(program.id)}">Ver</button>
+              </div>
+            </article>`;
+        }).join('');
+
+        elements.views.history.innerHTML = `
+          <div class="section-head">
+            <div><h2>Últimas emisiones</h2><p class="meta">Se conserva un máximo de cinco</p></div>
+            <span class="chip">${state.history.length} de ${MAX_HISTORY}</span>
+          </div>
+          ${cards ? `<div class="stack">${cards}</div>` : `
+            <div class="empty-state"><h3>Todavía no hay historial</h3><p class="meta">El programa actual se guardará acá cuando crees el siguiente.</p></div>`}
+          <p class="info-strip">Cuando entra el sexto programa, se elimina automáticamente el más antiguo. Podés exportar un respaldo completo tocando “Guardado local”.</p>`;
+      }
+
+      function render() {
+        renderProgram();
+        renderIdeas();
+        renderQuestions();
+        renderHistory();
+        renderHeader();
+        updateBadge(elements.ideasCount, activeIdeas().length);
+        updateBadge(elements.questionsCount, totalQuestions());
+        updateBadge(elements.historyCount, state.history.length);
+      }
+
+      function openEditor({ title, body, saveLabel = 'Guardar', onSubmit, hideCancel = false }) {
+        elements.editorTitle.textContent = title;
+        elements.editorBody.innerHTML = body;
+        elements.editorSave.textContent = saveLabel;
+        $('[data-action="close-editor"]', elements.editorForm).closest('.dialog-head');
+        const cancelButton = $('.dialog-foot [data-action="close-editor"]', elements.editorForm);
+        cancelButton.hidden = hideCancel;
+        editorSubmitHandler = onSubmit;
+        showModal(elements.editorDialog);
+        window.setTimeout(() => $('.input, .textarea, .select', elements.editorBody)?.focus(), 50);
+      }
+
+      function closeEditor() {
+        editorSubmitHandler = null;
+        closeModal(elements.editorDialog);
+      }
+
+      function confirmAction({ title = 'Confirmar', message, confirmLabel = 'Confirmar' }) {
+        elements.confirmTitle.textContent = title;
+        elements.confirmMessage.textContent = message;
+        elements.confirmAccept.textContent = confirmLabel;
+        showModal(elements.confirmDialog);
+        return new Promise(resolve => { confirmResolver = resolve; });
+      }
+
+      function resolveConfirm(value) {
+        closeModal(elements.confirmDialog);
+        if (confirmResolver) confirmResolver(value);
+        confirmResolver = null;
+      }
+
+      function openBlockEditor(block = null) {
+        const isNew = !block;
+        const current = block || { duration: 10, title: '', prompts: '' };
+        openEditor({
+          title: isNew ? 'Agregar bloque' : 'Editar bloque',
+          body: `
+            <div class="form-grid">
+              <div class="field"><label class="field-label" for="blockDuration">Duración</label><input class="input" id="blockDuration" name="duration" type="number" min="0" max="999" value="${escapeHtml(current.duration)}" required></div>
+              <div class="field"><label class="field-label" for="blockTitle">Contenido</label><input class="input" id="blockTitle" name="title" type="text" maxlength="180" value="${escapeHtml(current.title)}" required></div>
+            </div>
+            <div class="field"><label class="field-label" for="blockPrompts">Disparadores o temas</label><textarea class="textarea" id="blockPrompts" name="prompts" rows="9" placeholder="Una pregunta o tema por renglón">${escapeHtml(current.prompts)}</textarea><p class="help-text">Cada renglón se mostrará como un disparador separado en el productor.</p></div>
+            ${isNew ? '' : `<div class="button-row" style="margin-top:16px;justify-content:flex-start"><button class="button danger" type="button" data-action="delete-block-from-editor" data-id="${escapeHtml(current.id)}">Eliminar bloque</button></div>`}`,
+          onSubmit: async formData => {
+            const title = String(formData.get('title') || '').trim();
+            const duration = Number(formData.get('duration'));
+            if (!title || !Number.isFinite(duration) || duration < 0) {
+              toast('Revisá el nombre y la duración.', 'error');
+              return false;
+            }
+            if (isNew) {
+              state.currentProgram.blocks.push({ id: uid('block'), duration, title, prompts: String(formData.get('prompts') || '').trim() });
+            } else {
+              const target = state.currentProgram.blocks.find(item => item.id === current.id);
+              if (!target) return true;
+              target.duration = duration;
+              target.title = title;
+              target.prompts = String(formData.get('prompts') || '').trim();
+            }
+            await persist(isNew ? 'Bloque agregado.' : 'Bloque actualizado.');
+            return true;
+          }
+        });
+      }
+
+      function openDateEditor() {
+        openEditor({
+          title: 'Fecha del programa',
+          body: `<div class="field"><label class="field-label" for="programDate">Viernes del programa</label><input class="input" id="programDate" name="date" type="date" value="${escapeHtml(state.currentProgram.date)}" required></div>`,
+          onSubmit: async formData => {
+            const date = String(formData.get('date') || '');
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+            state.currentProgram.date = date;
+            await persist('Fecha actualizada.');
+            return true;
+          }
+        });
+      }
+
+      function openNewProgramEditor() {
+        openEditor({
+          title: 'Crear nuevo programa',
+          saveLabel: 'Crear programa',
+          body: `
+            <div class="field"><label class="field-label" for="newProgramDate">Fecha del nuevo programa</label><input class="input" id="newProgramDate" name="date" type="date" value="${escapeHtml(nextFridayIso())}" required></div>
+            <label class="check-row"><input type="checkbox" name="archive" checked><span><strong>Guardar el programa actual en el historial</strong><br>Se conservarán solamente las últimas cinco emisiones.</span></label>`,
+          onSubmit: async formData => {
+            const date = String(formData.get('date') || '');
+            const archive = formData.get('archive') === 'on';
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+
+            if (archive) {
+              const snapshot = clone(state.currentProgram);
+              snapshot.archivedAt = new Date().toISOString();
+              state.history = [snapshot, ...state.history.filter(item => item.id !== snapshot.id)].slice(0, MAX_HISTORY);
+              state.ideas.forEach(idea => {
+                if (idea.status === 'programmed' && idea.programId === state.currentProgram.id) {
+                  idea.status = 'used';
+                  idea.usedAt = new Date().toISOString();
+                }
+              });
+            } else {
+              state.ideas.forEach(idea => {
+                if (idea.status === 'programmed' && idea.programId === state.currentProgram.id) {
+                  idea.status = 'pending';
+                  delete idea.programId;
+                  delete idea.programLine;
+                }
+              });
+            }
+
+            state.currentProgram = createProgram(date);
+            activeView = 'program';
+            await persist(archive ? 'Programa archivado y nueva semana creada.' : 'Nuevo programa creado.');
+            setView('program');
+            return true;
+          }
+        });
+      }
+
+      function openIdeaEditor(idea) {
+        openEditor({
+          title: 'Editar tema',
+          body: `
+            <div class="field"><label class="field-label" for="editIdeaTitle">Tema</label><input class="input" id="editIdeaTitle" name="title" type="text" maxlength="180" value="${escapeHtml(idea.title)}" required></div>
+            <div class="field"><label class="field-label" for="editIdeaNote">Nota o disparador</label><textarea class="textarea" id="editIdeaNote" name="note" maxlength="800">${escapeHtml(idea.note || '')}</textarea></div>`,
+          onSubmit: async formData => {
+            const title = String(formData.get('title') || '').trim();
+            if (!title) return false;
+            const previousLine = idea.programLine;
+            idea.title = title;
+            idea.note = String(formData.get('note') || '').trim();
+            if (idea.status === 'programmed' && previousLine) {
+              const nextLine = `${idea.title}${idea.note ? ` — ${idea.note}` : ''}`;
+              const block = state.currentProgram.blocks.find(item => /temas secundarios/i.test(item.title));
+              if (block) {
+                block.prompts = promptLines(block.prompts).map(line => line === previousLine ? nextLine : line).join('\n');
+              }
+              idea.programLine = nextLine;
+            }
+            await persist('Tema actualizado.');
+            return true;
+          }
+        });
+      }
+
+      function openQuestionEditor({ scope, guestId = '', question = null }) {
+        const guest = scope === 'guest' ? state.questions.guests.find(item => item.id === guestId) : null;
+        if (scope === 'guest' && !guest) {
+          openGuestEditor();
+          return;
+        }
+        openEditor({
+          title: question ? 'Editar pregunta' : `Nueva pregunta${guest ? ` para ${guest.name}` : ' general'}`,
+          body: `<div class="field"><label class="field-label" for="questionText">Pregunta</label><textarea class="textarea" id="questionText" name="text" rows="5" maxlength="1000" placeholder="Escribí la pregunta completa" required>${escapeHtml(question?.text || '')}</textarea></div>`,
+          onSubmit: async formData => {
+            const text = String(formData.get('text') || '').trim();
+            if (!text) return false;
+            const collection = scope === 'guest' ? guest.questions : state.questions.general;
+            if (question) question.text = text;
+            else collection.push({ id: uid('question'), text, createdAt: new Date().toISOString() });
+            await persist(question ? 'Pregunta actualizada.' : 'Pregunta agregada.');
+            return true;
+          }
+        });
+      }
+
+      function openGuestEditor(guest = null) {
+        openEditor({
+          title: guest ? 'Editar invitado' : 'Nuevo invitado',
+          body: `
+            <div class="field"><label class="field-label" for="guestName">Nombre</label><input class="input" id="guestName" name="name" type="text" maxlength="120" value="${escapeHtml(guest?.name || '')}" required></div>
+            <div class="field"><label class="field-label" for="guestDescription">Descripción</label><input class="input" id="guestDescription" name="description" type="text" maxlength="180" value="${escapeHtml(guest?.description || '')}" placeholder="Ej.: abogado penalista y rapero"></div>`,
+          onSubmit: async formData => {
+            const name = String(formData.get('name') || '').trim();
+            if (!name) return false;
+            if (guest) {
+              guest.name = name;
+              guest.description = String(formData.get('description') || '').trim();
+            } else {
+              const created = { id: uid('guest'), name, description: String(formData.get('description') || '').trim(), createdAt: new Date().toISOString(), questions: [] };
+              state.questions.guests.push(created);
+              selectedGuestId = created.id;
+              questionMode = 'guest';
+            }
+            await persist(guest ? 'Invitado actualizado.' : 'Invitado creado.');
+            return true;
+          }
+        });
+      }
+
+      function openHistoryDetail(program) {
+        const body = program.blocks.map(block => {
+          const prompts = promptLines(block.prompts);
+          return `
+            <section class="history-detail-block">
+              <div class="card-row"><span class="duration">${escapeHtml(block.duration)} min</span><h3>${escapeHtml(block.title)}</h3></div>
+              ${prompts.length ? `<ul class="prompt-list">${prompts.map(prompt => `<li>${escapeHtml(prompt)}</li>`).join('')}</ul>` : '<p class="meta" style="margin-top:8px">Sin disparadores</p>'}
+            </section>`;
+        }).join('');
+        openEditor({
+          title: `${formatLongDate(program.date)} · ${programTitle(program)}`,
+          body,
+          saveLabel: 'Cerrar',
+          hideCancel: true,
+          onSubmit: async () => true
+        });
+      }
+
+      function findQuestion(scope, id, guestId = '') {
+        if (scope === 'guest') {
+          const guest = state.questions.guests.find(item => item.id === guestId);
+          return { guest, question: guest?.questions.find(item => item.id === id) || null };
+        }
+        return { guest: null, question: state.questions.general.find(item => item.id === id) || null };
+      }
+
+      async function addIdeaToProgram(idea) {
+        let block = state.currentProgram.blocks.find(item => /temas secundarios/i.test(item.title));
+        if (!block) {
+          block = { id: uid('block'), duration: 20, title: 'Temas secundarios', prompts: '' };
+          state.currentProgram.blocks.push(block);
+        }
+        const line = `${idea.title}${idea.note ? ` — ${idea.note}` : ''}`;
+        const lines = promptLines(block.prompts);
+        if (!lines.includes(line)) lines.push(line);
+        block.prompts = lines.join('\n');
+        idea.status = 'programmed';
+        idea.programId = state.currentProgram.id;
+        idea.programLine = line;
+        await persist('Tema sumado al programa del viernes.');
+      }
+
+      async function returnIdeaToBank(idea) {
+        const block = state.currentProgram.blocks.find(item => /temas secundarios/i.test(item.title));
+        if (block && idea.programLine) {
+          block.prompts = promptLines(block.prompts).filter(line => line !== idea.programLine).join('\n');
+        }
+        idea.status = 'pending';
+        delete idea.programId;
+        delete idea.programLine;
+        await persist('Tema devuelto al tintero.');
+      }
+
+      function exportData() {
+        const payload = JSON.stringify(state, null, 2);
+        const blob = new Blob([payload], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `la-excusa-respaldo-${isoDate(new Date())}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        closeModal(elements.backupDialog);
+        toast('Respaldo exportado.');
+      }
+
+      async function importFile(file) {
+        try {
+          const parsed = JSON.parse(await file.text());
+          if (!parsed || typeof parsed !== 'object' || !parsed.currentProgram || !Array.isArray(parsed.currentProgram.blocks)) {
+            throw new Error('Formato inválido');
+          }
+          const accepted = await confirmAction({
+            title: 'Importar respaldo',
+            message: 'Esto reemplazará la información guardada actualmente en este dispositivo.',
+            confirmLabel: 'Importar'
+          });
+          if (!accepted) return;
+          state = normalizeState(parsed);
+          selectedGuestId = state.questions.guests[0]?.id || null;
+          activeView = 'program';
+          await persist('Respaldo importado.');
+          setView('program');
+          closeModal(elements.backupDialog);
+        } catch (error) {
+          console.error(error);
+          toast('Ese archivo no es un respaldo válido.', 'error');
+        } finally {
+          elements.importInput.value = '';
+        }
+      }
+
+      async function handleClick(event) {
+        const viewButton = event.target.closest('[data-view]');
+        if (viewButton) {
+          setView(viewButton.dataset.view);
+          return;
+        }
+
+        if (event.target.closest('#headerAction')) {
+          if (activeView === 'program') openNewProgramEditor();
+          if (activeView === 'ideas') {
+            $('#newIdeaTitle')?.focus();
+            $('#newIdeaTitle')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          if (activeView === 'questions') {
+            openQuestionEditor({ scope: questionMode, guestId: selectedGuestId || '' });
+          }
+          return;
+        }
+
+        const trigger = event.target.closest('[data-action]');
+        if (!trigger) return;
+        const { action, id, scope, guestId, filter, mode } = trigger.dataset;
+
+        if (action === 'open-backup') showModal(elements.backupDialog);
+        if (action === 'close-backup') closeModal(elements.backupDialog);
+        if (action === 'close-editor') closeEditor();
+        if (action === 'export-data') exportData();
+        if (action === 'import-data') elements.importInput.click();
+        if (action === 'save-program') await persist('Programa guardado.');
+        if (action === 'edit-date') openDateEditor();
+        if (action === 'add-block') openBlockEditor();
+
+        if (action === 'edit-block') {
+          const block = state.currentProgram.blocks.find(item => item.id === id);
+          if (block) openBlockEditor(block);
+        }
+
+        if (action === 'delete-block-from-editor') {
+          const accepted = await confirmAction({ title: 'Eliminar bloque', message: 'Este bloque y todos sus disparadores se eliminarán del programa actual.', confirmLabel: 'Eliminar' });
+          if (accepted) {
+            state.currentProgram.blocks = state.currentProgram.blocks.filter(item => item.id !== id);
+            closeEditor();
+            await persist('Bloque eliminado.');
+          }
+        }
+
+        if (action === 'filter-ideas') {
+          ideaFilter = filter;
+          renderIdeas();
+        }
+
+        if (action === 'edit-idea') {
+          const idea = state.ideas.find(item => item.id === id);
+          if (idea) openIdeaEditor(idea);
+        }
+
+        if (action === 'delete-idea') {
+          const idea = state.ideas.find(item => item.id === id);
+          if (!idea) return;
+          const accepted = await confirmAction({ title: 'Eliminar tema', message: `“${idea.title}” se eliminará definitivamente del tintero.`, confirmLabel: 'Eliminar' });
+          if (accepted) {
+            if (idea.status === 'programmed') await returnIdeaToBank(idea);
+            state.ideas = state.ideas.filter(item => item.id !== id);
+            await persist('Tema eliminado.');
+          }
+        }
+
+        if (action === 'add-idea-to-program') {
+          const idea = state.ideas.find(item => item.id === id);
+          if (idea) await addIdeaToProgram(idea);
+        }
+
+        if (action === 'return-idea') {
+          const idea = state.ideas.find(item => item.id === id);
+          if (idea) await returnIdeaToBank(idea);
+        }
+
+        if (action === 'recover-idea') {
+          const idea = state.ideas.find(item => item.id === id);
+          if (idea) {
+            idea.status = 'pending';
+            delete idea.usedAt;
+            await persist('Tema recuperado.');
+          }
+        }
+
+        if (action === 'question-mode') {
+          questionMode = mode;
+          renderQuestions();
+        }
+
+        if (action === 'add-question') openQuestionEditor({ scope, guestId: guestId || selectedGuestId || '' });
+
+        if (action === 'edit-question') {
+          const found = findQuestion(scope, id, guestId);
+          if (found.question) openQuestionEditor({ scope, guestId, question: found.question });
+        }
+
+        if (action === 'delete-question') {
+          const found = findQuestion(scope, id, guestId);
+          if (!found.question) return;
+          const accepted = await confirmAction({ title: 'Eliminar pregunta', message: 'La pregunta se eliminará de este banco.', confirmLabel: 'Eliminar' });
+          if (accepted) {
+            if (scope === 'guest') found.guest.questions = found.guest.questions.filter(item => item.id !== id);
+            else state.questions.general = state.questions.general.filter(item => item.id !== id);
+            await persist('Pregunta eliminada.');
+          }
+        }
+
+        if (action === 'add-guest') openGuestEditor();
+
+        if (action === 'edit-guest') {
+          const guest = state.questions.guests.find(item => item.id === id);
+          if (guest) openGuestEditor(guest);
+        }
+
+        if (action === 'delete-guest') {
+          const guest = state.questions.guests.find(item => item.id === id);
+          if (!guest) return;
+          const accepted = await confirmAction({ title: 'Eliminar invitado', message: `También se eliminarán las ${guest.questions.length} preguntas específicas de ${guest.name}.`, confirmLabel: 'Eliminar' });
+          if (accepted) {
+            state.questions.guests = state.questions.guests.filter(item => item.id !== id);
+            selectedGuestId = state.questions.guests[0]?.id || null;
+            await persist('Invitado eliminado.');
+          }
+        }
+
+        if (action === 'view-history') {
+          const program = state.history.find(item => item.id === id);
+          if (program) openHistoryDetail(program);
+        }
+      }
+
+      async function handleSubmit(event) {
+        if (event.target === elements.editorForm) {
+          event.preventDefault();
+          if (!editorSubmitHandler) return;
+          const shouldClose = await editorSubmitHandler(new FormData(elements.editorForm));
+          if (shouldClose !== false) closeEditor();
+          return;
+        }
+
+        if (event.target.id === 'ideaComposer') {
+          event.preventDefault();
+          const formData = new FormData(event.target);
+          const title = String(formData.get('title') || '').trim();
+          if (!title) {
+            toast('Escribí un tema antes de guardarlo.', 'error');
+            return;
+          }
+          state.ideas.unshift({
+            id: uid('idea'),
+            title,
+            note: String(formData.get('note') || '').trim(),
+            status: 'pending',
+            createdAt: new Date().toISOString()
+          });
+          ideaFilter = 'active';
+          await persist('Idea guardada en el tintero.');
+        }
+      }
+
+      function handleChange(event) {
+        if (event.target.id === 'guestSelect') {
+          selectedGuestId = event.target.value;
+          renderQuestions();
+        }
+        if (event.target === elements.importInput && event.target.files?.[0]) {
+          importFile(event.target.files[0]);
+        }
+      }
+
+      function bindEvents() {
+        document.addEventListener('click', handleClick);
+        document.addEventListener('submit', handleSubmit);
+        document.addEventListener('change', handleChange);
+        elements.confirmCancel.addEventListener('click', () => resolveConfirm(false));
+        elements.confirmAccept.addEventListener('click', () => resolveConfirm(true));
+        elements.confirmDialog.addEventListener('cancel', event => {
+          event.preventDefault();
+          resolveConfirm(false);
+        });
+        elements.editorDialog.addEventListener('cancel', event => {
+          event.preventDefault();
+          closeEditor();
+        });
+        elements.backupDialog.addEventListener('cancel', event => {
+          event.preventDefault();
+          closeModal(elements.backupDialog);
+        });
+      }
+
+      async function boot() {
+        const loaded = await DataAdapter.load();
+        state = normalizeState(loaded);
+        selectedGuestId = state.questions.guests[0]?.id || null;
+        bindEvents();
+        render();
+        if (!loaded) await persist('', { silent: true });
+      }
+
+      boot().catch(error => {
+        console.error(error);
+        elements.pageSubtitle.textContent = 'No se pudo iniciar la aplicación';
+      });
+    })();
+  </script>
+</body>
+</html>

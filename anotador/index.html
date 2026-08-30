@@ -180,6 +180,18 @@
       box-shadow: 0 0 12px color-mix(in srgb, currentColor 70%, transparent);
     }
 
+    .local-status.is-loading { color: var(--muted); }
+    .local-status.is-pending { color: var(--orange); }
+    .local-status.is-error { color: var(--red); }
+
+    .local-status.is-loading::before {
+      animation: sync-pulse 1s ease-in-out infinite alternate;
+    }
+
+    @keyframes sync-pulse {
+      to { opacity: .32; transform: scale(.72); }
+    }
+
     .title-row { margin-top: 18px; align-items: flex-end; }
     .title-copy { min-width: 0; }
 
@@ -614,6 +626,47 @@
 
     .backup-actions { display: grid; gap: 10px; }
 
+    .sync-card {
+      padding: 14px;
+      margin-bottom: 14px;
+      border: 1px solid rgba(var(--accent-rgb), .24);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(var(--accent-rgb), .09), var(--surface));
+    }
+
+    .sync-card-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 13px;
+    }
+
+    .sync-light {
+      width: 9px;
+      height: 9px;
+      flex: 0 0 9px;
+      margin-top: 5px;
+      border-radius: 50%;
+      color: var(--green);
+      background: currentColor;
+      box-shadow: 0 0 14px color-mix(in srgb, currentColor 70%, transparent);
+    }
+
+    .sync-light.is-loading { color: var(--muted); }
+    .sync-light.is-pending { color: var(--orange); }
+    .sync-light.is-error { color: var(--red); }
+    .sync-card-head strong,
+    .sync-card-head .meta { display: block; }
+    .sync-card-head .meta { margin-top: 3px; }
+
+    .pin-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .pin-row .button { min-height: 48px; }
+
     .backup-option {
       display: flex;
       align-items: center;
@@ -779,12 +832,29 @@
   <dialog id="backupDialog" aria-labelledby="backupDialogTitle">
     <form class="dialog-form" method="dialog">
       <header class="dialog-head">
-        <div><h2 id="backupDialogTitle">Datos locales</h2><p class="meta">Hasta conectar Google Sheets</p></div>
+        <div><h2 id="backupDialogTitle">Sincronización</h2><p class="meta">Google Sheets + respaldo local</p></div>
         <button class="icon-button dialog-close" type="button" data-action="close-backup" aria-label="Cerrar">
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>
         </button>
       </header>
       <div class="dialog-body">
+        <section class="sync-card" aria-labelledby="syncDialogTitle">
+          <div class="sync-card-head">
+            <span class="sync-light is-loading" id="syncDialogLight" aria-hidden="true"></span>
+            <div class="grow">
+              <strong id="syncDialogTitle">Comprobando conexión</strong>
+              <span class="meta" id="syncDialogDetail">Tus datos siempre conservan una copia en este dispositivo.</span>
+            </div>
+          </div>
+          <label class="field">
+            <span class="field-label">PIN de escritura</span>
+            <span class="pin-row">
+              <input class="input" id="syncPin" type="password" inputmode="numeric" autocomplete="off" maxlength="32" placeholder="Ingresalo una sola vez">
+              <button class="button primary" type="button" data-action="connect-sheets">Conectar</button>
+            </span>
+          </label>
+          <button class="button ghost full" id="forgetPinButton" type="button" data-action="forget-pin" hidden>Olvidar PIN de este dispositivo</button>
+        </section>
         <div class="backup-actions">
           <button class="backup-option" type="button" data-action="export-data">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
@@ -795,7 +865,7 @@
             <span class="grow"><strong>Importar respaldo</strong><span class="meta">Restaura un archivo exportado anteriormente.</span></span>
           </button>
         </div>
-        <p class="info-strip">Por ahora la información queda solamente en este navegador y este dispositivo. Cuando conectemos Google Sheets, esta pantalla pasará a sincronizarse.</p>
+        <p class="info-strip" id="syncInfo">La copia local permite seguir anotando si se corta internet. Los cambios pendientes se enviarán cuando vuelva la conexión.</p>
       </div>
     </form>
   </dialog>
@@ -805,12 +875,15 @@
 
   <noscript><p>Esta aplicación necesita JavaScript para funcionar.</p></noscript>
 
-  <!-- La capa DataAdapter se reemplazará por Google Apps Script en la próxima etapa. -->
+  <!-- Google Apps Script funciona como fuente central; localStorage queda como respaldo offline. -->
   <script>
     (() => {
       'use strict';
 
       const STORAGE_KEY = 'la-excusa-editor-v1';
+      const DIRTY_KEY = 'la-excusa-editor-dirty-v1';
+      const PIN_KEY = 'la-excusa-editor-pin-v1';
+      const API_URL = 'https://script.google.com/macros/s/AKfycbx9czLzs4RzdB6lu5KlHciZUboVmd9Sy3LAPp9SA46Oiv76v-Rrhrms2msLDUi1MXiIdw/exec';
       const MAX_HISTORY = 5;
 
       const ICONS = {
@@ -850,6 +923,13 @@
         confirmCancel: $('#confirmCancel'),
         confirmAccept: $('#confirmAccept'),
         backupDialog: $('#backupDialog'),
+        backupButton: $('#backupButton'),
+        syncDialogLight: $('#syncDialogLight'),
+        syncDialogTitle: $('#syncDialogTitle'),
+        syncDialogDetail: $('#syncDialogDetail'),
+        syncPin: $('#syncPin'),
+        forgetPinButton: $('#forgetPinButton'),
+        syncInfo: $('#syncInfo'),
         importInput: $('#importInput'),
         toastRegion: $('#toastRegion')
       };
@@ -861,25 +941,167 @@
       let selectedGuestId = null;
       let editorSubmitHandler = null;
       let confirmResolver = null;
+      let syncUiState = {
+        kind: 'loading',
+        label: 'Conectando…',
+        detail: 'Buscando la última versión en Google Sheets.'
+      };
 
-      /*
-       * Punto de integración futuro.
-       * En la próxima etapa load/save se conectarán al Web App de Google Apps Script.
-       */
       const DataAdapter = {
-        mode: 'local',
-        async load() {
+        mode: 'sheets',
+        remoteAvailable: false,
+        saving: Promise.resolve(),
+
+        getPin() {
+          return localStorage.getItem(PIN_KEY) || '';
+        },
+
+        setPin(pin) {
+          const cleanPin = String(pin || '').trim();
+          if (cleanPin) localStorage.setItem(PIN_KEY, cleanPin);
+          else localStorage.removeItem(PIN_KEY);
+          refreshSyncDialog();
+        },
+
+        readLocal() {
           const raw = localStorage.getItem(STORAGE_KEY);
           if (!raw) return null;
           try {
             return JSON.parse(raw);
           } catch (error) {
-            console.warn('No se pudo leer el estado guardado.', error);
+            console.warn('No se pudo leer el respaldo local.', error);
             return null;
           }
         },
-        async save(nextState) {
+
+        writeLocal(nextState, dirty = true) {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+          if (dirty) localStorage.setItem(DIRTY_KEY, '1');
+          else localStorage.removeItem(DIRTY_KEY);
+        },
+
+        loadRemote(timeout = 30000) {
+          return new Promise((resolve, reject) => {
+            const callbackName = `__laExcusaApi_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+            const script = document.createElement('script');
+            const timer = window.setTimeout(() => finish(new Error('Google Sheets tardó demasiado en responder.')), timeout);
+            let settled = false;
+
+            const finish = (error, payload) => {
+              if (settled) return;
+              settled = true;
+              window.clearTimeout(timer);
+              script.remove();
+              try { delete window[callbackName]; } catch (deleteError) { window[callbackName] = undefined; }
+              if (error) reject(error);
+              else if (!payload?.ok) reject(new Error(payload?.error || 'La API devolvió un error.'));
+              else resolve(payload);
+            };
+
+            window[callbackName] = payload => finish(null, payload);
+            script.onerror = () => finish(new Error('No se pudo acceder al Web App de Google.'));
+            const query = new URLSearchParams({
+              action: 'load',
+              callback: callbackName,
+              _: String(Date.now())
+            });
+            script.src = `${API_URL}?${query}`;
+            document.head.appendChild(script);
+          });
+        },
+
+        async postState(nextState, pin) {
+          const remoteState = clone(nextState);
+          const nonce = uid('sync');
+          remoteState._sync = { nonce, sentAt: new Date().toISOString() };
+
+          await fetch(API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            cache: 'no-store',
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: JSON.stringify({ action: 'save', pin, state: remoteState })
+          });
+
+          const verification = await this.loadRemote(30000);
+          if (verification.state?._sync?.nonce !== nonce) {
+            throw new Error('Google Sheets no confirmó la escritura. Revisá el PIN y los permisos del Web App.');
+          }
+          return verification;
+        },
+
+        async connect(pin, nextState) {
+          const cleanPin = String(pin || '').trim();
+          if (!cleanPin) throw new Error('Ingresá el PIN generado por Apps Script.');
+          this.setPin(cleanPin);
+          this.writeLocal(nextState, true);
+          setSyncStatus('loading', 'Conectando…', 'Validando el PIN y enviando la copia local.');
+
+          try {
+            const response = await this.postState(nextState, cleanPin);
+            this.remoteAvailable = true;
+            this.writeLocal(nextState, false);
+            setSyncStatus('connected', 'Sincronizado', 'Los cambios ya están en Google Sheets.');
+            return response;
+          } catch (error) {
+            this.remoteAvailable = false;
+            setSyncStatus('error', 'No se pudo conectar', error.message || 'Revisá el PIN y los permisos.');
+            throw error;
+          }
+        },
+
+        async load() {
+          const localState = this.readLocal();
+          const hasPendingChanges = localStorage.getItem(DIRTY_KEY) === '1';
+          setSyncStatus('loading', 'Conectando…', 'Buscando la última versión en Google Sheets.');
+
+          try {
+            const remote = await this.loadRemote();
+            this.remoteAvailable = true;
+            if (hasPendingChanges && localState) {
+              setSyncStatus('pending', 'Cambios pendientes', 'Hay una copia local lista para enviar a Google Sheets.');
+              return localState;
+            }
+            if (remote.state) {
+              this.writeLocal(remote.state, false);
+              setSyncStatus('connected', 'Sincronizado', 'Leyendo y guardando en Google Sheets.');
+              return remote.state;
+            }
+            setSyncStatus('pending', 'Listo para conectar', 'Ingresá el PIN para hacer la primera sincronización.');
+            return localState;
+          } catch (error) {
+            this.remoteAvailable = false;
+            console.warn('No se pudo leer Google Sheets; se usará el respaldo local.', error);
+            setSyncStatus('error', 'Sin conexión', 'Se está usando el respaldo de este dispositivo.');
+            return localState;
+          }
+        },
+
+        async save(nextState) {
+          this.writeLocal(nextState, true);
+          const pin = this.getPin();
+          if (!pin) {
+            setSyncStatus('pending', 'Pendiente de sincronizar', 'Ingresá el PIN para enviar los cambios a Google Sheets.');
+            return { remote: false };
+          }
+
+          setSyncStatus('loading', 'Sincronizando…', 'Guardando cambios en Google Sheets.');
+          this.saving = this.saving.catch(() => undefined).then(async () => {
+            const response = await this.postState(nextState, pin);
+            this.remoteAvailable = true;
+            this.writeLocal(nextState, false);
+            setSyncStatus('connected', 'Sincronizado', 'Los cambios ya están en Google Sheets.');
+            return response;
+          });
+
+          try {
+            await this.saving;
+            return { remote: true };
+          } catch (error) {
+            this.remoteAvailable = false;
+            setSyncStatus('error', 'Guardado local', error.message || 'No se pudo sincronizar.');
+            return { remote: false, error };
+          }
         }
       };
 
@@ -1079,6 +1301,65 @@
         }
         const meaningful = program.blocks.find(block => promptLines(block.prompts).length > 0);
         return meaningful ? meaningful.title : 'Programa sin título';
+      }
+
+      function setSyncStatus(kind, label, detail) {
+        syncUiState = { kind, label, detail };
+        const className = kind === 'connected'
+          ? ''
+          : kind === 'loading'
+            ? 'is-loading'
+            : kind === 'pending'
+              ? 'is-pending'
+              : 'is-error';
+
+        elements.backupButton.className = `local-status ${className}`.trim();
+        elements.backupButton.textContent = label;
+        refreshSyncDialog();
+      }
+
+      function refreshSyncDialog() {
+        if (!elements.syncDialogTitle) return;
+        const className = syncUiState.kind === 'connected'
+          ? ''
+          : syncUiState.kind === 'loading'
+            ? 'is-loading'
+            : syncUiState.kind === 'pending'
+              ? 'is-pending'
+              : 'is-error';
+        elements.syncDialogLight.className = `sync-light ${className}`.trim();
+        elements.syncDialogTitle.textContent = syncUiState.label;
+        elements.syncDialogDetail.textContent = syncUiState.detail;
+        const hasPin = Boolean(DataAdapter.getPin());
+        if (document.activeElement !== elements.syncPin) {
+          elements.syncPin.value = hasPin ? DataAdapter.getPin() : '';
+        }
+        elements.forgetPinButton.hidden = !hasPin;
+      }
+
+      async function connectSheets() {
+        const pin = elements.syncPin.value.trim();
+        if (!pin) {
+          toast('Ingresá el PIN generado por Apps Script.', 'error');
+          elements.syncPin.focus();
+          return;
+        }
+
+        try {
+          await DataAdapter.connect(pin, state);
+          toast('Google Sheets conectado.');
+          closeModal(elements.backupDialog);
+        } catch (error) {
+          console.error(error);
+          toast(error.message || 'No se pudo conectar Google Sheets.', 'error');
+        }
+      }
+
+      function forgetPin() {
+        DataAdapter.setPin('');
+        elements.syncPin.value = '';
+        setSyncStatus('pending', 'PIN eliminado', 'La copia local sigue intacta; ingresá el PIN para volver a sincronizar.');
+        toast('El PIN se eliminó de este dispositivo.');
       }
 
       async function persist(message, options = {}) {
@@ -1660,8 +1941,13 @@
         if (!trigger) return;
         const { action, id, scope, guestId, filter, mode } = trigger.dataset;
 
-        if (action === 'open-backup') showModal(elements.backupDialog);
+        if (action === 'open-backup') {
+          refreshSyncDialog();
+          showModal(elements.backupDialog);
+        }
         if (action === 'close-backup') closeModal(elements.backupDialog);
+        if (action === 'connect-sheets') await connectSheets();
+        if (action === 'forget-pin') forgetPin();
         if (action === 'close-editor') closeEditor();
         if (action === 'export-data') exportData();
         if (action === 'import-data') elements.importInput.click();

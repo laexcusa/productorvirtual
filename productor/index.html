@@ -657,6 +657,113 @@
         }
       }
 
+      .producer-alert-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: grid;
+        place-items: center;
+        visibility: hidden;
+        padding: clamp(18px, 4vw, 64px);
+        background: rgba(0, 0, 0, 0);
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          visibility 0s linear 220ms,
+          background 220ms ease,
+          opacity 220ms ease;
+      }
+
+      .producer-alert-backdrop.open {
+        visibility: visible;
+        background: rgba(0, 0, 0, 0.74);
+        opacity: 1;
+        pointer-events: auto;
+        transition-delay: 0s;
+      }
+
+      .producer-alert-card {
+        width: min(860px, 100%);
+        overflow: hidden;
+        border: 2px solid #ffd34f;
+        border-radius: clamp(18px, 2.2vw, 28px);
+        background: #11120d;
+        color: #fff;
+        box-shadow:
+          0 34px 110px rgba(0, 0, 0, 0.62),
+          0 0 70px rgba(255, 211, 79, 0.16);
+        transform: translateY(22px) scale(0.975);
+        transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      .producer-alert-backdrop.open .producer-alert-card {
+        transform: translateY(0) scale(1);
+      }
+
+      .producer-alert-stripe {
+        height: 9px;
+        background: #ffd34f;
+      }
+
+      .producer-alert-content {
+        padding: clamp(28px, 4vw, 54px);
+      }
+
+      .producer-alert-kicker {
+        margin: 0 0 13px;
+        color: #ffd34f;
+        font-size: clamp(0.72rem, 1.1vw, 0.92rem);
+        font-weight: 900;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .producer-alert-title {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 4.8rem);
+        font-weight: 820;
+        letter-spacing: -0.055em;
+        line-height: 1;
+        text-wrap: balance;
+      }
+
+      .producer-alert-meta {
+        margin: 18px 0 0;
+        color: #aeb4af;
+        font-size: clamp(0.78rem, 1.05vw, 0.94rem);
+        line-height: 1.5;
+      }
+
+      .producer-alert-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: clamp(26px, 3vw, 38px);
+      }
+
+      .producer-alert-button {
+        min-height: 48px;
+        padding: 0 18px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.055);
+        color: #f7f8f7;
+        font-size: 0.76rem;
+        font-weight: 850;
+        letter-spacing: 0.035em;
+        cursor: pointer;
+      }
+
+      .producer-alert-button.primary {
+        border-color: #ffd34f;
+        background: #ffd34f;
+        color: #171208;
+      }
+
+      .producer-alert-button:hover {
+        filter: brightness(1.08);
+      }
+
       .settings-backdrop {
         position: fixed;
         inset: 0;
@@ -1218,6 +1325,54 @@
     </div>
 
     <div
+      class="producer-alert-backdrop"
+      id="producerAlert"
+      aria-hidden="true"
+    >
+      <section
+        class="producer-alert-card"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="producerAlertTitle"
+        aria-describedby="producerAlertMeta"
+      >
+        <div class="producer-alert-stripe" aria-hidden="true"></div>
+        <div class="producer-alert-content">
+          <p class="producer-alert-kicker" id="producerAlertKicker">
+            Impás · Tema secundario
+          </p>
+          <h2 class="producer-alert-title" id="producerAlertTitle"></h2>
+          <p class="producer-alert-meta" id="producerAlertMeta">
+            Hagan este corte cuando cierre la idea actual. El reloj principal sigue corriendo.
+          </p>
+          <div class="producer-alert-actions">
+            <button
+              class="producer-alert-button primary"
+              id="producerAlertDone"
+              type="button"
+            >
+              Listo · volver al tema
+            </button>
+            <button
+              class="producer-alert-button"
+              id="producerAlertSnooze"
+              type="button"
+            >
+              Recordar en 5 min
+            </button>
+            <button
+              class="producer-alert-button"
+              id="producerAlertDismiss"
+              type="button"
+            >
+              Descartar
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div
       class="settings-backdrop"
       id="settingsBackdrop"
       aria-hidden="true"
@@ -1351,6 +1506,9 @@
 
         const STORAGE_KEY = "la-excusa-productor-v1";
         const MINUTE = 60 * 1000;
+        const FIRST_PRODUCER_ALERT_AT = 25 * MINUTE;
+        const NEXT_PRODUCER_ALERT_AFTER = 15 * MINUTE;
+        const PRODUCER_ALERT_SNOOZE = 5 * MINUTE;
 
         const DEFAULT_AGENDA = [
           {
@@ -1451,6 +1609,13 @@
           restoreDemoButton: document.getElementById("restoreDemoButton"),
           loadMessage: document.getElementById("loadMessage"),
           toast: document.getElementById("toast"),
+          producerAlert: document.getElementById("producerAlert"),
+          producerAlertKicker: document.getElementById("producerAlertKicker"),
+          producerAlertTitle: document.getElementById("producerAlertTitle"),
+          producerAlertMeta: document.getElementById("producerAlertMeta"),
+          producerAlertDone: document.getElementById("producerAlertDone"),
+          producerAlertSnooze: document.getElementById("producerAlertSnooze"),
+          producerAlertDismiss: document.getElementById("producerAlertDismiss"),
         };
 
         const state = {
@@ -1464,6 +1629,10 @@
           sourceLabel: "Temario de ejemplo",
           sheetUrl: "",
           toastTimer: null,
+          producerAlertTopicKey: "",
+          producerAlertHandled: [],
+          producerAlertActiveId: "",
+          producerAlertNextAt: FIRST_PRODUCER_ALERT_AT,
         };
 
         function safeCloneAgenda(agenda) {
@@ -1489,6 +1658,9 @@
               Math.max(0, Number(saved.currentIndex) || 0),
               state.agenda.length - 1,
             );
+            if (isSecondarySource(state.agenda[state.currentIndex])) {
+              state.currentIndex = visibleAgendaIndexes()[0] ?? 0;
+            }
 
             const selected = state.agenda[state.currentIndex];
             state.totalMs =
@@ -1506,6 +1678,22 @@
 
             state.sourceLabel = saved.sourceLabel || "Temario guardado";
             state.sheetUrl = saved.sheetUrl || "";
+            state.producerAlertTopicKey = String(
+              saved.producerAlertTopicKey || "",
+            );
+            state.producerAlertHandled = Array.isArray(
+              saved.producerAlertHandled,
+            )
+              ? saved.producerAlertHandled.map(String)
+              : [];
+            state.producerAlertActiveId = String(
+              saved.producerAlertActiveId || "",
+            );
+            state.producerAlertNextAt = Number.isFinite(
+              Number(saved.producerAlertNextAt),
+            )
+              ? Math.max(0, Number(saved.producerAlertNextAt))
+              : FIRST_PRODUCER_ALERT_AT;
             elements.sheetUrl.value = state.sheetUrl;
           } catch {
             localStorage.removeItem(STORAGE_KEY);
@@ -1528,6 +1716,10 @@
                 running: state.running,
                 sourceLabel: state.sourceLabel,
                 sheetUrl: state.sheetUrl,
+                producerAlertTopicKey: state.producerAlertTopicKey,
+                producerAlertHandled: state.producerAlertHandled,
+                producerAlertActiveId: state.producerAlertActiveId,
+                producerAlertNextAt: state.producerAlertNextAt,
                 savedAt: now,
               }),
             );
@@ -1543,6 +1735,167 @@
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, " ")
             .trim();
+        }
+
+        function isSecondarySource(topic) {
+          const name = normalizeHeader(topic?.content);
+          return (
+            name.includes("tema secundario") ||
+            name.includes("temas secundarios") ||
+            name.includes("off topic") ||
+            name.includes("offtopic")
+          );
+        }
+
+        function isMainTopic(topic) {
+          return normalizeHeader(topic?.content).includes("tema principal");
+        }
+
+        function visibleAgendaIndexes() {
+          return state.agenda
+            .map((topic, index) => ({ topic, index }))
+            .filter(({ topic }) => !isSecondarySource(topic))
+            .map(({ index }) => index);
+        }
+
+        function topicSessionKey(index = state.currentIndex) {
+          const topic = state.agenda[index];
+          return `${index}:${normalizeHeader(topic?.content)}`;
+        }
+
+        function isProductionReminder(text) {
+          const value = normalizeHeader(text);
+          return [
+            "like",
+            "suscrib",
+            "coment",
+            "redes",
+            "qr",
+            "apoya",
+            "apoyar",
+          ].some((word) => value.includes(word));
+        }
+
+        function producerAlertItems() {
+          const items = [];
+          state.agenda.forEach((topic, topicIndex) => {
+            if (!isSecondarySource(topic)) return;
+            topic.prompts.filter(Boolean).forEach((text, promptIndex) => {
+              items.push({
+                id: `${topicIndex}:${promptIndex}:${normalizeHeader(text)}`,
+                text,
+                reminder: isProductionReminder(text),
+              });
+            });
+          });
+          return items;
+        }
+
+        function currentTopicElapsed() {
+          return Math.max(
+            0,
+            state.totalMs - Math.max(0, state.remainingMs),
+          );
+        }
+
+        function hideProducerAlert() {
+          elements.producerAlert.classList.remove("open");
+          elements.producerAlert.setAttribute("aria-hidden", "true");
+        }
+
+        function showProducerAlert(item) {
+          state.producerAlertActiveId = item.id;
+          elements.producerAlertKicker.textContent = item.reminder
+            ? "Recordatorio de producción"
+            : "Impás · Tema secundario";
+          elements.producerAlertTitle.textContent = item.text;
+          elements.producerAlertMeta.textContent = item.reminder
+            ? "Hagan el recordatorio cuando cierre la idea actual. El reloj principal sigue corriendo."
+            : "Hagan este corte cuando cierre la idea actual. El reloj principal sigue corriendo.";
+          elements.producerAlert.classList.add("open");
+          elements.producerAlert.setAttribute("aria-hidden", "false");
+          persistState(true);
+          window.setTimeout(() => elements.producerAlertDone.focus(), 120);
+        }
+
+        function prepareProducerAlertSession() {
+          const topic = state.agenda[state.currentIndex];
+          if (!isMainTopic(topic)) {
+            hideProducerAlert();
+            return;
+          }
+
+          const key = topicSessionKey();
+          if (state.producerAlertTopicKey !== key) {
+            state.producerAlertTopicKey = key;
+            state.producerAlertHandled = [];
+            state.producerAlertActiveId = "";
+            state.producerAlertNextAt = FIRST_PRODUCER_ALERT_AT;
+            hideProducerAlert();
+            persistState(true);
+            return;
+          }
+
+          const active = producerAlertItems().find(
+            (item) => item.id === state.producerAlertActiveId,
+          );
+          if (
+            active &&
+            !state.producerAlertHandled.includes(active.id) &&
+            !elements.producerAlert.classList.contains("open")
+          ) {
+            showProducerAlert(active);
+          }
+        }
+
+        function maybeShowProducerAlert() {
+          const topic = state.agenda[state.currentIndex];
+          if (
+            !state.running ||
+            !isMainTopic(topic) ||
+            elements.producerAlert.classList.contains("open") ||
+            elements.settingsBackdrop.classList.contains("open")
+          ) {
+            return;
+          }
+
+          if (state.producerAlertTopicKey !== topicSessionKey()) {
+            prepareProducerAlertSession();
+          }
+          if (currentTopicElapsed() < state.producerAlertNextAt) return;
+
+          const nextItem = producerAlertItems().find(
+            (item) => !state.producerAlertHandled.includes(item.id),
+          );
+          if (nextItem) showProducerAlert(nextItem);
+        }
+
+        function resolveProducerAlert(action) {
+          const activeId = state.producerAlertActiveId;
+          if (!activeId) {
+            hideProducerAlert();
+            return;
+          }
+
+          if (action === "snooze") {
+            state.producerAlertActiveId = "";
+            state.producerAlertNextAt =
+              currentTopicElapsed() + PRODUCER_ALERT_SNOOZE;
+            hideProducerAlert();
+            persistState(true);
+            showToast("Lo recuerdo en 5 minutos");
+            return;
+          }
+
+          if (!state.producerAlertHandled.includes(activeId)) {
+            state.producerAlertHandled.push(activeId);
+          }
+          state.producerAlertActiveId = "";
+          state.producerAlertNextAt =
+            currentTopicElapsed() + NEXT_PRODUCER_ALERT_AFTER;
+          hideProducerAlert();
+          persistState(true);
+          showToast(action === "dismiss" ? "Aviso descartado" : "Aviso realizado");
         }
 
         function cellText(value) {
@@ -1885,6 +2238,11 @@
           state.agenda = safeCloneAgenda(agenda);
           state.currentIndex = 0;
           state.sourceLabel = sourceLabel;
+          state.producerAlertTopicKey = "";
+          state.producerAlertHandled = [];
+          state.producerAlertActiveId = "";
+          state.producerAlertNextAt = FIRST_PRODUCER_ALERT_AT;
+          hideProducerAlert();
           selectTopic(0, false);
           persistState(true);
           renderAll();
@@ -1918,10 +2276,12 @@
         }
 
         function moveTopic(direction) {
-          const target = state.currentIndex + direction;
-          if (target < 0 || target >= state.agenda.length) return;
+          const visible = visibleAgendaIndexes();
+          const currentPosition = visible.indexOf(state.currentIndex);
+          const targetPosition = currentPosition + direction;
+          if (targetPosition < 0 || targetPosition >= visible.length) return;
           const shouldRun = state.running || state.remainingMs <= 0;
-          selectTopic(target, shouldRun);
+          selectTopic(visible[targetPosition], shouldRun);
         }
 
         function adjustMinute(direction) {
@@ -1940,6 +2300,13 @@
           state.remainingMs = state.totalMs;
           state.running = false;
           state.lastFrame = performance.now();
+          if (isMainTopic(topic)) {
+            state.producerAlertTopicKey = topicSessionKey();
+            state.producerAlertHandled = [];
+            state.producerAlertActiveId = "";
+            state.producerAlertNextAt = FIRST_PRODUCER_ALERT_AT;
+            hideProducerAlert();
+          }
           persistState(true);
           renderTimer();
           showToast("Bloque reiniciado");
@@ -2051,23 +2418,30 @@
 
         function renderAgenda() {
           const topic = state.agenda[state.currentIndex];
-          const next = state.agenda[state.currentIndex + 1];
-          const totalProgramMinutes = state.agenda.reduce(
-            (sum, item) => sum + item.minutes,
-            0,
-          );
+          const visible = visibleAgendaIndexes();
+          const visiblePosition = visible.indexOf(state.currentIndex);
+          const nextIndex = visible[visiblePosition + 1];
+          const next = Number.isInteger(nextIndex)
+            ? state.agenda[nextIndex]
+            : null;
+          const totalProgramMinutes = state.agenda
+            .filter((item) => !isSecondarySource(item))
+            .reduce(
+              (sum, item) => sum + item.minutes,
+              0,
+            );
 
           elements.topicTitle.textContent = topic.content;
           elements.scheduledTime.textContent = topic.time
             ? topic.time.replace(/\s*-\s*/, " — ")
             : `Bloque ${state.currentIndex + 1}`;
-          elements.segmentCount.textContent = `Tema ${state.currentIndex + 1} de ${state.agenda.length}`;
+          elements.segmentCount.textContent = `Tema ${visiblePosition + 1} de ${visible.length}`;
           elements.blockDuration.textContent = `Bloque de ${topic.minutes} min`;
           elements.programDuration.textContent = `Programa: ${formatTotalMinutes(totalProgramMinutes)}`;
-          elements.syncText.textContent = `${state.sourceLabel} · ${state.agenda.length} ${state.agenda.length === 1 ? "bloque" : "bloques"}`;
-          elements.previousButton.disabled = state.currentIndex === 0;
-          elements.nextButton.disabled =
-            state.currentIndex === state.agenda.length - 1;
+          const producerAlerts = producerAlertItems().length;
+          elements.syncText.textContent = `${state.sourceLabel} · ${visible.length} ${visible.length === 1 ? "bloque" : "bloques"}${producerAlerts ? ` · ${producerAlerts} ${producerAlerts === 1 ? "aviso" : "avisos"}` : ""}`;
+          elements.previousButton.disabled = visiblePosition <= 0;
+          elements.nextButton.disabled = visiblePosition >= visible.length - 1;
 
           if (next) {
             elements.nextName.textContent = next.content;
@@ -2083,6 +2457,7 @@
         function renderAll() {
           renderAgenda();
           renderTimer();
+          prepareProducerAlertSession();
         }
 
         function updateClock() {
@@ -2100,6 +2475,7 @@
           if (state.running) {
             state.remainingMs -= delta;
             renderTimer();
+            maybeShowProducerAlert();
             persistState();
           }
           requestAnimationFrame(tick);
@@ -2158,6 +2534,14 @@
             target instanceof HTMLInputElement ||
             target instanceof HTMLTextAreaElement ||
             target?.isContentEditable;
+
+          if (elements.producerAlert.classList.contains("open")) {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              resolveProducerAlert("snooze");
+            }
+            return;
+          }
 
           if (event.key === "Escape" && elements.settingsBackdrop.classList.contains("open")) {
             closeSettings();
@@ -2230,6 +2614,15 @@
           elements.manualData.value = "";
           setLoadMessage("Se restauró el temario de ejemplo.", "success");
         });
+        elements.producerAlertDone.addEventListener("click", () =>
+          resolveProducerAlert("done"),
+        );
+        elements.producerAlertSnooze.addEventListener("click", () =>
+          resolveProducerAlert("snooze"),
+        );
+        elements.producerAlertDismiss.addEventListener("click", () =>
+          resolveProducerAlert("dismiss"),
+        );
         document.addEventListener("keydown", handleKeydown);
         document.addEventListener("visibilitychange", () => {
           state.lastFrame = performance.now();
